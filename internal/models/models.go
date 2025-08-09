@@ -53,7 +53,7 @@ type League struct {
 	Club   Club
 
 	Groups []Group
-	Tandas []Tanda
+	Rounds []Round
 }
 
 func (l *League) BeforeCreate(tx *gorm.DB) (err error) {
@@ -68,11 +68,9 @@ func (l *League) BeforeCreate(tx *gorm.DB) (err error) {
 type Group struct {
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name     string
+	Order    int
 	LeagueID uuid.UUID
 	League   League
-
-	TandaID uuid.UUID
-	Tanda   Tanda
 
 	Users []*User `gorm:"many2many:group_users;"`
 }
@@ -83,21 +81,19 @@ func (g *Group) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 // --------------------
-// Tanda (una ronda de partidos, por ejemplo mensual)
+// Round (match round)
 // --------------------
 
-type Tanda struct {
+type Round struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
 	LeagueID  uuid.UUID
 	League    League
 	Number    int
 	StartDate time.Time
 	EndDate   time.Time
-	Groups    []Group
-	Matches   []Match
 }
 
-func (t *Tanda) BeforeCreate(tx *gorm.DB) (err error) {
+func (t *Round) BeforeCreate(tx *gorm.DB) (err error) {
 	t.ID = uuid.New()
 	return
 }
@@ -106,18 +102,11 @@ func (t *Tanda) BeforeCreate(tx *gorm.DB) (err error) {
 // Match (partido)
 // --------------------
 
-type Pair struct {
-	Player1ID uuid.UUID
-	Player1   User
-	Player2ID uuid.UUID
-	Player2   User
-}
-
 type Match struct {
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey"`
 	LeagueID uuid.UUID
 	GroupID  uuid.UUID
-	TandaID  uuid.UUID
+	RoundID  uuid.UUID
 
 	Pair1Player1ID uuid.UUID
 	Pair1Player1   User `gorm:"foreignKey:Pair1Player1ID"`
@@ -129,9 +118,13 @@ type Match struct {
 	Pair2Player2ID uuid.UUID
 	Pair2Player2   User `gorm:"foreignKey:Pair2Player2ID"`
 
-	Score1   int
-	Score2   int
-	PlayedAt time.Time
+	Set1Pair1 int
+	Set1Pair2 int
+	Set2Pair1 int
+	Set2Pair2 int
+	Set3Pair1 int
+	Set3Pair2 int
+	PlayedAt  time.Time
 }
 
 func (m *Match) BeforeCreate(tx *gorm.DB) (err error) {

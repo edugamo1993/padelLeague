@@ -1,24 +1,14 @@
-package groups
+package rounds
 
 import (
-	"github.com/gofiber/fiber/v2"
-
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-type CreateGroupInput struct {
-	Name string `json:"name" validate:"required"`
-}
-
-func CreateGroup(c *fiber.Ctx) error {
-	var input CreateGroupInput
-
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Formato de entrada no válido",
-		})
-	}
+func CreateRound(c *fiber.Ctx) error {
 
 	clubIDParam := c.Params("clubID")
 	leagueIDParam := c.Params("leagueID")
@@ -39,24 +29,24 @@ func CreateGroup(c *fiber.Ctx) error {
 
 	// Calcular el último Order en esa liga
 	var lastOrder int
-	database.DB.Model(&models.Group{}).
+	database.DB.Model(&models.Round{}).
 		Where("league_id = ?", leagueID).
 		Select("COALESCE(MAX(`order`), 0)").
 		Scan(&lastOrder)
 
-	newOrder := lastOrder + 1
-
-	group := models.Group{
-		Name:     input.Name,
-		Order:    newOrder,
-		LeagueID: *leagueID,
+	round := models.Round{
+		LeagueID:  *leagueID,
+		Number:    lastOrder + 1,
+		StartDate: time.Now(),
 	}
-
-	if err := database.DB.Create(&group).Error; err != nil {
+	if err := database.DB.Create(&round).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Error al crear el grupo",
+			"error": "Error al crear la ronda",
 		})
 	}
+	return c.Status(fiber.StatusCreated).JSON(round)
+}
 
-	return c.Status(fiber.StatusCreated).JSON(group)
+func FinishRound(c *fiber.Ctx) error {
+
 }

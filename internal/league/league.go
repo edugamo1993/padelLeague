@@ -1,34 +1,57 @@
 package league
 
 import (
-	"fmt"
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
 
-	"github.com/google/uuid"
+	"github.com/gofiber/fiber/v2"
 )
 
-const(
+const (
 	errClubNotFound = "ClubNotFound"
 )
 
 type CreateLeagueInput struct {
-	Name   string    `json:"name" validate:"required"`
-	ClubID uuid.UUID `json:"club_id"`
+	Name string `json:"name" validate:"required"`
 }
 
-func CreateLeague(input *CreateLeagueInput) (*models.League,error) {
+func CreateLeague(c *fiber.Ctx) error {
+	var input CreateLeagueInput
 
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Formato de entrada no válido",
+		})
+	}
+
+	clubIDParam := c.Params("id")
+
+	// Check if club exists
+	var club models.Club
+	clubID, err := database.VerifyIfExist(&club, clubIDParam, c)
+	if err != nil {
+		return err
+	}
+
+	// Check if league name already exists
+	var existingLeague models.League
+	if err := database.DB.Where("name = ? AND club_id = ?", input.Name, clubID).First(&existingLeague).Error; err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "Ya existe una liga con ese nombre en este club",
+		})
+	}
 
 	// Crear la liga
 	league := models.League{
 		Name:   input.Name,
-		ClubID: input.ClubID,
+		ClubID: clubID,
 	}
 
 	if err := database.DB.Create(&league).Error; err != nil {
-		return nil,fmt.Errorf("error creating league in database: %s",err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al crear la liga",
+		})
 	}
 
-	return &league,nil
+	return c.Status(fiber.StatusCreated).JSON(league)
 }

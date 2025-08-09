@@ -3,6 +3,8 @@ package database
 import (
 	"log"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -29,9 +31,29 @@ func InitDatabase() {
 	DB.AutoMigrate(&models.User{},
 		&models.Club{},
 		&models.League{},
-		&models.Tanda{},
+		&models.Round{},
 		&models.Group{},
 		&models.Match{},
 	)
 
+}
+
+func VerifyIfExist(model interface{}, id string, ctx *fiber.Ctx) (*uuid.UUID, error) {
+	// Parse club UUID
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "ID de club no válido",
+		})
+	}
+
+	// Check if club exists
+	var club models.Club
+	if err := DB.First(&club, "id = ?", uid).Error; err != nil {
+		return nil, ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Club no encontrado",
+		})
+	}
+
+	return &uid, nil
 }
