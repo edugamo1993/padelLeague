@@ -44,7 +44,7 @@ func CreateLeague(c *fiber.Ctx) error {
 	// Crear la liga
 	league := models.League{
 		Name:   input.Name,
-		ClubID: clubID,
+		ClubID: *clubID,
 	}
 
 	if err := database.DB.Create(&league).Error; err != nil {
@@ -54,4 +54,25 @@ func CreateLeague(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(league)
+}
+
+func ListLeagues(c *fiber.Ctx) error {
+	clubIDParam := c.Params("id")
+
+	// Check if club exists
+	var club models.Club
+	clubID, err := database.VerifyIfExist(&club, clubIDParam, c)
+	if err != nil {
+		return err
+	}
+
+	var leagues []models.League
+
+	if err := database.DB.Preload("Club").Where("club_id = ?", clubID).Find(&leagues).Error; err != nil {
+		return c.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"error": "Error listando clubs",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(leagues)
 }

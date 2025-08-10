@@ -39,3 +39,16 @@ func CreateClub(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(club)
 }
+
+func ListClubs(c *fiber.Ctx) error {
+
+	var clubs []models.Club
+
+	if err := database.DB.Find(&clubs).Error; err != nil {
+		return c.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"error": "Error listando clubs",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(clubs)
+}

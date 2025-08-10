@@ -43,7 +43,7 @@ func VerifyIfExist(model interface{}, id string, ctx *fiber.Ctx) (*uuid.UUID, er
 	uid, err := uuid.Parse(id)
 	if err != nil {
 		return nil, ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "ID de club no válido",
+			"error": "ID no válido",
 		})
 	}
 
@@ -51,7 +51,7 @@ func VerifyIfExist(model interface{}, id string, ctx *fiber.Ctx) (*uuid.UUID, er
 	var club models.Club
 	if err := DB.First(&club, "id = ?", uid).Error; err != nil {
 		return nil, ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Club no encontrado",
+			"error": "No encontrado",
 		})
 	}
 
