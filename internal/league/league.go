@@ -1,6 +1,7 @@
 package league
 
 import (
+	"fmt"
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
 
@@ -28,9 +29,11 @@ func CreateLeague(c *fiber.Ctx) error {
 
 	// Check if club exists
 	var club models.Club
-	clubID, err := database.VerifyIfExist(&club, clubIDParam, c)
+	clubID, status, err := database.VerifyIfExist(&club, clubIDParam)
 	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": fmt.Errorf("Error verifying club : %s", err),
+		})
 	}
 
 	// Check if league name already exists
@@ -61,9 +64,11 @@ func ListLeagues(c *fiber.Ctx) error {
 
 	// Check if club exists
 	var club models.Club
-	clubID, err := database.VerifyIfExist(&club, clubIDParam, c)
+	clubID, status, err := database.VerifyIfExist(&club, clubIDParam)
 	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": fmt.Errorf("Error verifying club : %s", err),
+		})
 	}
 
 	var leagues []models.League

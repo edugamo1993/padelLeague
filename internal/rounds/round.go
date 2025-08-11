@@ -1,12 +1,14 @@
 package rounds
 
 import (
+	"fmt"
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
+	"github.com/google/uuid"
 )
 
 func CreateRound(c *fiber.Ctx) error {
@@ -14,18 +16,11 @@ func CreateRound(c *fiber.Ctx) error {
 	clubIDParam := c.Params("clubID")
 	leagueIDParam := c.Params("leagueID")
 
-	// Check if club exists
-	var club models.Club
-	_, err := database.VerifyIfExist(&club, clubIDParam, c)
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
 	if err != nil {
-		return err
-	}
-
-	// Check if league exists
-	var league models.League
-	leagueID, err := database.VerifyIfExist(&league, leagueIDParam, c)
-	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	log.Infof("leagueID is %s", leagueID.String())
@@ -56,18 +51,11 @@ func FinishRound(c *fiber.Ctx) error {
 	leagueIDParam := c.Params("leagueID")
 	roundId := c.Params("id")
 
-	// Check if club exists
-	var club models.Club
-	_, err := database.VerifyIfExist(&club, clubIDParam, c)
+	_, status, err := verify(clubIDParam, leagueIDParam)
 	if err != nil {
-		return err
-	}
-
-	// Check if league exists
-	var league models.League
-	_, err = database.VerifyIfExist(&league, leagueIDParam, c)
-	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	err = database.DB.Model(&models.Round{}).Where("id = ?", roundId).Update("end_date", time.Now()).Error
@@ -87,4 +75,24 @@ func FinishRound(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(round)
+}
+
+func verify(clubIDParam, leagueIDParam string) (*uuid.UUID, int, error) {
+
+	// Check if club exists
+	var club models.Club
+	_, status, err := database.VerifyIfExist(&club, clubIDParam)
+	if err != nil {
+		return nil, status, fmt.Errorf("Error al verificar el club: %s", err)
+	}
+
+	// Check if league exists
+	var league models.League
+	leagueID, status, err := database.VerifyIfExist(&league, leagueIDParam)
+	if err != nil {
+		return nil, status, fmt.Errorf("Error al verificar la liga: %s", err)
+
+	}
+
+	return leagueID, fiber.StatusOK, nil
 }

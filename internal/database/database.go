@@ -1,7 +1,9 @@
 package database
 
 import (
-	"log"
+	"fmt"
+
+	"github.com/gofiber/fiber/v2/log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -38,22 +40,21 @@ func InitDatabase() {
 
 }
 
-func VerifyIfExist(model interface{}, id string, ctx *fiber.Ctx) (*uuid.UUID, error) {
+func VerifyIfExist(model interface{}, id string) (*uuid.UUID, int, error) {
 	// Parse club UUID
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "ID no válido",
-		})
+		return nil, fiber.StatusBadRequest, fmt.Errorf("ID no valido : %s", err)
 	}
+
+	log.Infof("id: %s", uid.String())
 
 	// Check if club exists
-	var club models.Club
-	if err := DB.First(&club, "id = ?", uid).Error; err != nil {
-		return nil, ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "No encontrado",
-		})
+	if err := DB.First(&model, "id = ?", uid).Error; err != nil {
+		return nil, fiber.StatusNotFound, fmt.Errorf("ID No encontrado : %s", err)
 	}
 
-	return &uid, nil
+	fmt.Println("++++++++++++", uid.String())
+
+	return &uid, fiber.StatusOK, nil
 }

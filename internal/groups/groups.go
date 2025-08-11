@@ -1,7 +1,11 @@
 package groups
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
+	"github.com/google/uuid"
 
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
@@ -20,22 +24,17 @@ func CreateGroup(c *fiber.Ctx) error {
 		})
 	}
 
-	clubIDParam := c.Params("clubID")
-	leagueIDParam := c.Params("leagueID")
+	clubIDParam := c.Params("clubId")
+	leagueIDParam := c.Params("leagueId")
 
-	// Check if club exists
-	var club models.Club
-	_, err := database.VerifyIfExist(&club, clubIDParam, c)
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
 	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
-	// Check if league exists
-	var league models.League
-	leagueID, err := database.VerifyIfExist(&league, leagueIDParam, c)
-	if err != nil {
-		return err
-	}
+	log.Infof("leagueID : %s", leagueID)
 
 	// Calcular el último Order en esa liga
 	var lastOrder int
@@ -59,4 +58,46 @@ func CreateGroup(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(group)
+}
+
+func ListGroups(c *fiber.Ctx) error {
+	clubIDParam := c.Params("clubId")
+	leagueIDParam := c.Params("leagueId")
+
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
+	if err != nil {
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	var groups []models.Group
+
+	if err := database.DB.Preload("League").Preload("League.Club").Where("league_id = ?", leagueID).Find(&groups).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "error listing groups from league",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(groups)
+}
+
+func verify(clubIDParam, leagueIDParam string) (*uuid.UUID, int, error) {
+
+	// Check if club exists
+	var club models.Club
+	_, status, err := database.VerifyIfExist(&club, clubIDParam)
+	if err != nil {
+		return nil, status, fmt.Errorf("Error al verificar el club: %s", err)
+	}
+
+	// Check if league exists
+	var league models.League
+	leagueID, status, err := database.VerifyIfExist(&league, leagueIDParam)
+	if err != nil {
+		return nil, status, fmt.Errorf("Error al verificar la liga: %s", err)
+
+	}
+
+	return leagueID, fiber.StatusOK, nil
 }

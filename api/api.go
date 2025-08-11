@@ -33,6 +33,7 @@ func BuildApi() *fiber.App {
 
 	//Groups
 	app.Post("/clubs/:clubId/leagues/:leagueId/groups", groups.CreateGroup)
+	app.Get("/clubs/:clubId/leagues/:leagueId/groups", groups.ListGroups)
 
 	//Round
 	app.Post("/clubs/:clubId/leagues/:leagueId/rounds", rounds.CreateRound)

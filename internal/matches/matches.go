@@ -1,6 +1,7 @@
 package matches
 
 import (
+	"fmt"
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
 
@@ -28,18 +29,11 @@ func CreateMatch(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if club exists
-	var club models.Club
-	_, err := database.VerifyIfExist(&club, clubIDParam, c)
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
 	if err != nil {
-		return err
-	}
-
-	// Check if league exists
-	var league models.League
-	leagueID, err := database.VerifyIfExist(&league, leagueIDParam, c)
-	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	if len(input.Pair1) != 2 || len(input.Pair2) != 2 {
@@ -92,18 +86,11 @@ func ListMatches(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if club exists
-	var club models.Club
-	_, err := database.VerifyIfExist(&club, clubIDParam, c)
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
 	if err != nil {
-		return err
-	}
-
-	// Check if league exists
-	var league models.League
-	leagueID, err := database.VerifyIfExist(&league, leagueIDParam, c)
-	if err != nil {
-		return err
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	var matches []models.Match
@@ -152,3 +139,23 @@ func SetMatchDate(c *fiber.Ctx) error {
 }
 
 */
+
+func verify(clubIDParam, leagueIDParam string) (*uuid.UUID, int, error) {
+
+	// Check if club exists
+	var club models.Club
+	_, status, err := database.VerifyIfExist(&club, clubIDParam)
+	if err != nil {
+		return nil, status, fmt.Errorf("Error al verificar el club: %s", err)
+	}
+
+	// Check if league exists
+	var league models.League
+	leagueID, status, err := database.VerifyIfExist(&league, leagueIDParam)
+	if err != nil {
+		return nil, status, fmt.Errorf("Error al verificar la liga: %s", err)
+
+	}
+
+	return leagueID, fiber.StatusOK, nil
+}
