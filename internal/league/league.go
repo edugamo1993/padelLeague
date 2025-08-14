@@ -6,6 +6,7 @@ import (
 	"ligapadel/internal/models"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 const (
@@ -80,4 +81,34 @@ func ListLeagues(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(leagues)
+}
+
+func GetLeague(c *fiber.Ctx) error {
+	clubIDParam := c.Params("id")
+
+	// Check if club exists
+	var club models.Club
+	clubID, status, err := database.VerifyIfExist(&club, clubIDParam)
+	if err != nil {
+		return c.Status(status).JSON(fiber.Map{
+			"error": fmt.Sprintf("Error verifying club : %s", err),
+		})
+	}
+
+	leagueID, err := uuid.Parse(c.Params("leagueId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("ID no valido : %s", err),
+		})
+	}
+
+	var league models.League
+
+	if err := database.DB.Preload("Club").Where("club_id = ? AND id = ?", clubID, leagueID).Find(&league).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Error listando clubs",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(league)
 }

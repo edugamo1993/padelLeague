@@ -107,6 +107,87 @@ func ListMatches(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(matches)
 }
 
+type SetResult [2]int
+
+type UpdateMatchInput struct {
+	SetResults []SetResult
+}
+
+func (umi *UpdateMatchInput) Validate() error {
+	if len(umi.SetResults) < 2 {
+		return fmt.Errorf("Se necesitan al menos 2 sets para setear el resultado")
+	}
+
+	for _, result := range umi.SetResults {
+		if len(result) < 2 {
+			return fmt.Errorf("Malformed results")
+		}
+	}
+
+	return nil
+}
+
+func UpdateMatch(c *fiber.Ctx) error {
+	clubIDParam := c.Params("clubID")
+	leagueIDParam := c.Params("leagueID")
+
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
+	if err != nil {
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	matchID, err := uuid.Parse(c.Params("matchId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("ID no valido : %s", err),
+		})
+	}
+
+	var input UpdateMatchInput
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Formato de entrada no válido",
+		})
+	}
+
+	if err := input.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	var match models.Match
+
+	updates := map[string]interface{}{
+		"set1_pair1": input.SetResults[0][0],
+		"set1_pair2": input.SetResults[0][1],
+		"set2_pair1": input.SetResults[1][0],
+		"set2_pair2": input.SetResults[1][1],
+	}
+	if len(input.SetResults) > 2 {
+		updates["set3_pair1"] = input.SetResults[2][0]
+		updates["set3_pair2"] = input.SetResults[2][1]
+	}
+
+	q := database.DB.Where("league_id = ? AND id = ?", leagueID, matchID)
+	if err := q.Updates(updates).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al actualizar el partido",
+		})
+	}
+
+	if err := q.First(&match).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al obtener el partido",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(match)
+}
+
 /*
 func SetMatchDate(c *fiber.Ctx) error {
 	match := database.DB.Where("")

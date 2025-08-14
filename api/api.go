@@ -26,14 +26,17 @@ func BuildApi() *fiber.App {
 	//Clubs
 	app.Post("/clubs", club.CreateClub)
 	app.Get("/clubs", club.ListClubs)
+	app.Get("/clubs/:clubId", club.GetClub)
 
 	//Leagues
 	app.Post("/clubs/:id/leagues", league.CreateLeague)
 	app.Get("/clubs/:id/leagues", league.ListLeagues)
+	app.Get("/clubs/:id/leagues/:leagueId", league.GetLeague)
 
 	//Groups
 	app.Post("/clubs/:clubId/leagues/:leagueId/groups", groups.CreateGroup)
 	app.Get("/clubs/:clubId/leagues/:leagueId/groups", groups.ListGroups)
+	app.Get("/clubs/:clubId/leagues/:leagueId/groups/:groupId", groups.GetGroup)
 
 	//Round
 	app.Post("/clubs/:clubId/leagues/:leagueId/rounds", rounds.CreateRound)
@@ -41,6 +44,7 @@ func BuildApi() *fiber.App {
 
 	//Matches
 	app.Post("/clubs/:clubId/leagues/:leagueId/matches", matches.CreateMatch)
+	app.Patch("/clubs/:clubId/leagues/:leagueId/matches/:matchId", matches.UpdateMatch)
 
 	return app
 

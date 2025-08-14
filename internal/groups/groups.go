@@ -60,6 +60,37 @@ func CreateGroup(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(group)
 }
 
+func GetGroup(c *fiber.Ctx) error {
+	clubIDParam := c.Params("clubId")
+	leagueIDParam := c.Params("leagueId")
+
+	leagueID, status, err := verify(clubIDParam, leagueIDParam)
+	if err != nil {
+		return c.Status(status).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	groupID, err := uuid.Parse(c.Params("groupId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("ID no valido : %s", err),
+		})
+	}
+
+	var group models.Group
+
+	if err := database.DB.Preload("League").
+		Preload("League.Club").
+		Where("league_id = ? AND id = ?", leagueID, groupID).Find(&group).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "error finding group",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(group)
+}
+
 func ListGroups(c *fiber.Ctx) error {
 	clubIDParam := c.Params("clubId")
 	leagueIDParam := c.Params("leagueId")
@@ -73,7 +104,9 @@ func ListGroups(c *fiber.Ctx) error {
 
 	var groups []models.Group
 
-	if err := database.DB.Preload("League").Preload("League.Club").Where("league_id = ?", leagueID).Find(&groups).Error; err != nil {
+	if err := database.DB.Preload("League").
+		Preload("League.Club").
+		Where("league_id = ?", leagueID).Find(&groups).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "error listing groups from league",
 		})
