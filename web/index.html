@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padel League - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Loader -->
+    <div id="loader" class="loader">
+        <div class="spinner"></div>
+        <p>Cargando...</p>
+    </div>
+
+    <!-- Login/Register Modal -->
+    <div id="authModal" class="modal active">
+        <div class="modal-content">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <h1><i class="fas fa-table-tennis"></i> Padel League</h1>
+                    <p>Gestiona tus ligas y torneos</p>
+
+                    <div class="auth-role-toggle" id="authRoleToggle">
+                        <button type="button" id="rolePlayerBtn" class="role-btn active">Jugador</button>
+                        <button type="button" id="roleClubBtn" class="role-btn">Club</button>
+                    </div>
+
+                    <small id="authRoleHint">Modo: Jugador</small>
+                </div>
+                
+                <!-- Login Form -->
+                <form id="loginForm" class="auth-form active">
+                    <h2>Iniciar Sesión</h2>
+                    
+                    <!-- Google Auth Button -->
+                    <div class="social-auth">
+                        <button type="button" class="btn btn-google" id="googleLoginBtn">
+                            <i class="fab fa-google"></i>
+                            Iniciar sesión con Google
+                        </button>
+                    </div>
+                    
+                    <div class="divider">
+                        <span>o</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <input type="email" id="loginEmail" placeholder="Correo electrónico" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="loginPassword" placeholder="Contraseña" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+                    <p class="auth-switch">¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a></p>
+                </form>
+
+                <!-- Register Form -->
+                <form id="registerForm" class="auth-form">
+                    <h2>Registrarse</h2>
+                    <div class="form-group">
+                        <input type="text" id="registerName" placeholder="Nombre completo" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" id="registerEmail" placeholder="Correo electrónico" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="registerPassword" placeholder="Contraseña" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Registrarse</button>
+                    <p class="auth-switch">¿Ya tienes cuenta? <a href="#" id="showLogin">Inicia sesión</a></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-table-tennis"></i> Padel League</h2>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li>
+                        <a href="#" data-page="dashboard" class="nav-link active player-only">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-page="clubDashboard" class="nav-link club-only" style="display:none;">
+                            <i class="fas fa-building"></i>
+                            <span>Club Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-page="clubs" class="nav-link">
+                            <i class="fas fa-building"></i>
+                            <span>Mis Clubs</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-page="leagues" class="nav-link">
+                            <i class="fas fa-trophy"></i>
+                            <span>Mis Ligas</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-page="matches" class="nav-link">
+                            <i class="fas fa-futbol"></i>
+                            <span>Mis Partidos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-page="profile" class="nav-link">
+                            <i class="fas fa-user"></i>
+                            <span>Mi Perfil</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-secondary" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Cerrar Sesión</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Mobile Top Bar -->
+        <div class="mobile-topbar" id="mobileTopbar">
+            <button class="hamburger-btn" id="hamburgerBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="mobile-title"><i class="fas fa-table-tennis"></i> Padel League</span>
+        </div>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboardPage" class="page active">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                    <div class="user-info">
+                        <span id="currentUser"></span>
+                        <span class="user-role" id="userRole"></span>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-building"></i> Mis Clubs</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="clubsList" class="list-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-trophy"></i> Próximos Partidos</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="upcomingMatches" class="list-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> Estadísticas</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="userStats" class="stats-grid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Club Dashboard Page -->
+            <div id="clubDashboardPage" class="page">
+                <div class="page-header">
+                    <h1>Club Dashboard</h1>
+                    <div class="user-info">
+                        <span id="currentClubUser"></span>
+                        <span class="user-role" id="userRoleClub">Club</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-building"></i> Mis Clubs</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="clubAdminClubsList" class="list-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-trophy"></i> Ligas Activas</h3>
+                        </div>
+                        <div class="card-content">
+                            <div id="clubLeaguesList" class="list-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-users"></i> Acciones Rápidas</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="club-actions">
+                                <button class="btn btn-primary" id="btnCreateClubLeague">Crear Liga</button>
+                                <button class="btn btn-secondary" id="btnManageClubMembers">Gestionar Miembros</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clubs Page -->
+            <div id="clubsPage" class="page">
+                <div class="page-header">
+                    <h1>Mis Clubs</h1>
+                </div>
+                
+                <div class="clubs-grid" id="clubsGrid"></div>
+            </div>
+
+            <!-- Club Detail Modal -->
+            <div id="clubModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="clubModalTitle">Club</h2>
+                        <button class="close-btn" id="closeClubModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="clubDetails"></div>
+                        <div class="club-actions">
+                            <button class="btn btn-primary" id="createLeagueBtn">Crear Liga</button>
+                            <button class="btn btn-secondary" id="manageMembersBtn">Gestionar Miembros</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create League Modal -->
+            <div id="createLeagueModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Crear Liga</h2>
+                        <button class="close-btn" id="closeCreateLeagueModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="newLeagueName">Nombre de la liga</label>
+                            <input type="text" id="newLeagueName" placeholder="Liga Primavera" />
+                        </div>
+                        <div class="form-group">
+                            <label for="newLeagueSeason">Temporada</label>
+                            <input type="text" id="newLeagueSeason" placeholder="2026-Primavera" />
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" id="submitCreateLeague">Crear</button>
+                            <button class="btn btn-secondary" id="cancelCreateLeague">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leagues Page -->
+            <div id="leaguesPage" class="page">
+                <div class="page-header">
+                    <h1>Mis Ligas</h1>
+                </div>
+                
+                <div class="leagues-list" id="leaguesList"></div>
+            </div>
+
+            <!-- League Detail Modal -->
+            <div id="leagueModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="leagueModalTitle">Liga</h2>
+                        <button class="close-btn" id="closeLeagueModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="tabs">
+                            <button class="tab-btn active" data-tab="groups">Grupos</button>
+                            <button class="tab-btn" data-tab="tandas">Tandas</button>
+                            <button class="tab-btn" data-tab="standings">Clasificación</button>
+                        </div>
+                        
+                        <div class="tab-content">
+                            <div id="groupsTab" class="tab-pane active">
+                                <div class="section-header">
+                                    <h3>Grupos de la Liga</h3>
+                                    <button class="btn btn-primary" onclick="leagues.showCreateGroupModal()">
+                                        <i class="fas fa-plus"></i> Crear Grupo
+                                    </button>
+                                </div>
+                                <div id="groupsList" class="list-container"></div>
+                            </div>
+                            <div id="tandasTab" class="tab-pane">
+                                <div class="section-header">
+                                    <h3>Tandas</h3>
+                                    <button class="btn btn-success" onclick="leagues.startTanda()">
+                                        <i class="fas fa-play"></i> Nueva Tanda
+                                    </button>
+                                </div>
+                                <div id="tandasList" class="list-container"></div>
+                            </div>
+                            <div id="standingsTab" class="tab-pane">
+                                <div id="standingsList"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group Modal (Create/Edit) -->
+            <div id="groupModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="groupModalTitle">Crear Grupo</h2>
+                        <button class="close-btn" id="closeGroupModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-container">
+                            <input type="hidden" id="groupId" value="">
+                            <div class="form-group">
+                                <label for="groupName">Nombre del Grupo</label>
+                                <input type="text" id="groupName" placeholder="Grupo A" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="groupMinPlayers">Mínimo de Jugadores</label>
+                                <input type="number" id="groupMinPlayers" min="4" value="4" required>
+                            </div>
+                            <div class="modal-actions">
+                                <button class="btn btn-secondary" onclick="leagues.hideGroupModal()">Cancelar</button>
+                                <button class="btn btn-primary" onclick="leagues.submitGroup()">Guardar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group Details Modal -->
+            <div id="groupDetailsModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Miembros del Grupo</h2>
+                        <button class="close-btn" onclick="leagues.hideGroupDetailsModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="section-header">
+                            <h3>Miembros</h3>
+                            <button class="btn btn-primary" onclick="leagues.showAddMemberModal()">
+                                <i class="fas fa-plus"></i> Añadir Miembro
+                            </button>
+                        </div>
+                        <div id="groupMembersList" class="list-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Member Modal -->
+            <div id="addMemberModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Añadir Miembro al Grupo</h2>
+                        <button class="close-btn" onclick="leagues.hideAddMemberModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-container">
+                            <div class="form-group">
+                                <label for="memberPhone">Buscar usuario registrado por teléfono</label>
+                                <div class="input-group">
+                                    <input type="tel" id="memberPhone" placeholder="612345678" onkeypress="if(event.key === 'Enter') leagues.searchUsers()">
+                                    <button class="btn btn-secondary" onclick="leagues.searchUsers()">Buscar</button>
+                                </div>
+                                <small class="text-light">Si no encuentras al usuario, podrás añadirlo como usuario no registrado</small>
+                            </div>
+                            
+                            <div id="memberSearchResults"></div>
+                            
+                            <div id="registeredUserSection" style="display: none;">
+                                <h4>✅ Usuario Registrado Seleccionado</h4>
+                                <input type="hidden" id="selectedUserId">
+                                <div id="selectedUserInfo" class="user-info"></div>
+                                <button class="btn btn-warning btn-sm" onclick="leagues.clearUserSelection()">
+                                    <i class="fas fa-times"></i> Cambiar selección
+                                </button>
+                            </div>
+                            
+                            <div id="unregisteredUserSection">
+                                <h4>👤 Usuario No Registrado</h4>
+                                <div class="form-group">
+                                    <label for="memberName">Nombre *</label>
+                                    <input type="text" id="memberName" placeholder="Juan" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="memberLastName">Apellidos *</label>
+                                    <input type="text" id="memberLastName" placeholder="Pérez García" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="memberPhone2">Teléfono *</label>
+                                    <input type="tel" id="memberPhone2" placeholder="612345678" required>
+                                </div>
+                            </div>
+                            
+                            <div class="modal-actions">
+                                <button class="btn btn-secondary" onclick="leagues.hideAddMemberModal()">Cancelar</button>
+                                <button class="btn btn-success" onclick="leagues.addMember()">
+                                    <i class="fas fa-plus"></i> Añadir Miembro
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matches Page -->
+            <div id="matchesPage" class="page">
+                <div class="page-header">
+                    <h1>Mis Partidos</h1>
+                </div>
+                
+                <div class="matches-list" id="userMatchesList"></div>
+            </div>
+
+            <!-- Match Detail Modal -->
+            <div id="matchModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Detalles del Partido</h2>
+                        <button class="close-btn" id="closeMatchModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="matchDetails"></div>
+                        <div id="matchResultForm" class="form-container">
+                            <h3>Registrar Resultado</h3>
+                            <div class="form-group">
+                                <label>Set 1</label>
+                                <div class="score-inputs">
+                                    <input type="number" id="set1Pair1" min="0" max="7" placeholder="Pareja 1">
+                                    <span>-</span>
+                                    <input type="number" id="set1Pair2" min="0" max="7" placeholder="Pareja 2">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Set 2</label>
+                                <div class="score-inputs">
+                                    <input type="number" id="set2Pair1" min="0" max="7" placeholder="Pareja 1">
+                                    <span>-</span>
+                                    <input type="number" id="set2Pair2" min="0" max="7" placeholder="Pareja 2">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Set 3 (opcional)</label>
+                                <div class="score-inputs">
+                                    <input type="number" id="set3Pair1" min="0" max="7" placeholder="Pareja 1">
+                                    <span>-</span>
+                                    <input type="number" id="set3Pair2" min="0" max="7" placeholder="Pareja 2">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" id="submitResultBtn">Registrar Resultado</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Confirmation Modal -->
+            <div id="deleteConfirmModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Confirmar Eliminación</h2>
+                        <button class="close-btn" id="closeDeleteConfirmModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="delete-confirm-content">
+                            <div class="delete-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <h3 id="deleteConfirmTitle">¿Eliminar liga?</h3>
+                            <p id="deleteConfirmMessage">Esta acción no se puede deshacer. ¿Estás seguro de que quieres eliminar esta liga?</p>
+                            <div class="delete-details" id="deleteDetails"></div>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-secondary" id="cancelDeleteBtn">Cancelar</button>
+                            <button class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Finish Round Modal -->
+            <div id="finishRoundModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-flag-checkered"></i> Finalizar Tanda Actual</h2>
+                        <button class="close-btn" onclick="leagues.hideFinishRoundModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>La tanda actual no está cerrada. Para iniciar una nueva tanda debes finalizarla primero.</p>
+                        <p>Al finalizar se calcularán los rankings y se reorganizarán los grupos:</p>
+                        <ul style="margin: 8px 0 16px 20px; color: var(--text-light);">
+                            <li>Los <strong>2 primeros</strong> de cada grupo suben al grupo anterior.</li>
+                            <li>Los <strong>2 últimos</strong> de cada grupo bajan al grupo siguiente.</li>
+                            <li>Los demás se mantienen.</li>
+                        </ul>
+                        <div id="finishRoundMovements" style="margin-bottom: 12px;"></div>
+                        <div id="finishRoundResult" style="display:none; margin-bottom: 12px;"></div>
+                        <div id="finishRoundActions" class="modal-actions">
+                            <button class="btn btn-secondary" onclick="leagues.hideFinishRoundModal()">Cancelar</button>
+                            <button id="finishRoundConfirmBtn" class="btn btn-success" onclick="leagues.confirmFinishRound()">
+                                <i class="fas fa-flag-checkered"></i> Finalizar y reorganizar
+                            </button>
+                        </div>
+                        <div class="modal-actions" style="display:none;" id="finishRoundCloseRow">
+                            <button id="finishRoundCloseBtn" class="btn btn-primary" style="display:none" onclick="leagues.hideFinishRoundModal()">
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Match Result Modal -->
+            <div id="resultMatchModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-edit"></i> Registrar Resultado</h2>
+                        <button class="close-btn" onclick="leagues.hideResultModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Jugadores -->
+                        <div class="result-players-header">
+                            <div class="result-pair">
+                                <span class="result-pair-label">Pareja 1</span>
+                                <span id="resultPair1Names" class="result-pair-names"></span>
+                            </div>
+                            <span class="result-vs">vs</span>
+                            <div class="result-pair">
+                                <span class="result-pair-label">Pareja 2</span>
+                                <span id="resultPair2Names" class="result-pair-names"></span>
+                            </div>
+                        </div>
+
+                        <div class="form-container">
+                            <div class="form-group">
+                                <label for="resultMatchDate">Fecha del partido</label>
+                                <input type="date" id="resultMatchDate">
+                            </div>
+
+                            <!-- Cabecera de columnas -->
+                            <div class="score-header">
+                                <span></span>
+                                <span id="scoreColP1" class="score-col-label">P1</span>
+                                <span></span>
+                                <span id="scoreColP2" class="score-col-label">P2</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Set 1 *</label>
+                                <div class="score-inputs">
+                                    <input type="number" id="set1p1" min="0" max="7" placeholder="0">
+                                    <span>-</span>
+                                    <input type="number" id="set1p2" min="0" max="7" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Set 2 *</label>
+                                <div class="score-inputs">
+                                    <input type="number" id="set2p1" min="0" max="7" placeholder="0">
+                                    <span>-</span>
+                                    <input type="number" id="set2p2" min="0" max="7" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Set 3 (opcional)</label>
+                                <div class="score-inputs">
+                                    <input type="number" id="set3p1" min="0" max="7" placeholder="0">
+                                    <span>-</span>
+                                    <input type="number" id="set3p2" min="0" max="7" placeholder="0">
+                                </div>
+                            </div>
+                            <div id="resultValidationMsg" style="color:red; margin-bottom:8px; display:none;"></div>
+                            <div class="modal-actions">
+                                <button class="btn btn-secondary" onclick="leagues.hideResultModal()">Cancelar</button>
+                                <button class="btn btn-success" onclick="leagues.saveResult()">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<!-- Profile Page -->
+            <div id="profilePage" class="page">
+                <div class="page-header">
+                    <h1>Mi Perfil</h1>
+                </div>
+                
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h2 id="profileName"></h2>
+                            <p id="profileEmail"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Partidos Jugados</span>
+                            <span class="stat-value" id="statMatches"></span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Partidos Ganados</span>
+                            <span class="stat-value" id="statWins"></span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Partidos Perdidos</span>
+                            <span class="stat-value" id="statLosses"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Perfil Completo -->
+                <div id="profileComplete" class="profile-section">
+                    <h3>Datos del Perfil</h3>
+                    <div class="profile-data">
+                        <div class="data-item">
+                            <label>Apellidos:</label>
+                            <span id="profileLastName"></span>
+                        </div>
+                        <div class="data-item">
+                            <label>Teléfono:</label>
+                            <span id="profilePhone"></span>
+                        </div>
+                        <div class="data-item">
+                            <label>Población:</label>
+                            <span id="profileCity"></span>
+                        </div>
+                        <div class="data-item">
+                            <label>Nivel de Pádel:</label>
+                            <span id="profileLevel"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulario de Perfil -->
+                <div id="profileForm" class="profile-section" style="display: none;">
+                    <h3>Completar Perfil</h3>
+                    <p>Por favor, completa tu información personal para mejorar tu experiencia.</p>
+                    
+                    <form id="profileForm" class="form-container">
+                        <div class="form-group">
+                            <label for="profileNameInput">Nombre</label>
+                            <input type="text" id="profileNameInput" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileLastNameInput">Apellidos</label>
+                            <input type="text" id="profileLastNameInput" name="last_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profilePhoneInput">Teléfono</label>
+                            <input type="tel" id="profilePhoneInput" name="phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileBirthDateInput">Fecha de Nacimiento</label>
+                            <input type="date" id="profileBirthDateInput" name="birth_date">
+                        </div>
+                        <div class="form-group">
+                            <label for="profileCityInput">Población</label>
+                            <input type="text" id="profileCityInput" name="city" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileLevelInput">Nivel de Pádel</label>
+                            <select id="profileLevelInput" name="padel_level" required>
+                                <option value="">Selecciona un nivel</option>
+                                <option value="iniciacion">Iniciación</option>
+                                <option value="sexta">Sexta</option>
+                                <option value="quinta">Quinta</option>
+                                <option value="cuarta">Cuarta</option>
+                                <option value="tercera">Tercera</option>
+                                <option value="segunda">Segunda</option>
+                                <option value="primera">Primera</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="profile.saveProfile()">Guardar Perfil</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-exclamation-triangle"></i> Error</h2>
+                <button class="close-btn" onclick="utils.hideErrorModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage">Ha ocurrido un error.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="utils.hideErrorModal()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Módulos JS — orden de carga importante (dependencias primero) -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/clubs.js"></script>
+    <script src="js/leagues.js"></script>
+    <script src="js/matches.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

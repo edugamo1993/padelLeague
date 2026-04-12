@@ -1,41 +1,169 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"golang.org/x/crypto/bcrypt"
+	"net/http"
+	"time"
 
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"ligapadel/internal/database"
 	"ligapadel/internal/models"
 )
 
-type RegisterInput struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+type ProfileInput struct {
+	Name       string `json:"name"`
+	LastName   string `json:"last_name"`
+	Phone      string `json:"phone"`
+	BirthDate  string `json:"birth_date"`
+	City       string `json:"city"`
+	PadelLevel string `json:"padel_level"`
 }
 
-func Register(c *fiber.Ctx) error {
-	var input RegisterInput
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+func Register(c *gin.Context) {
+	var body struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		return
+	}
+	if body.Name == "" || body.Email == "" || body.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Se requieren name, email y password"})
+		return
+	}
+	if body.Role == "" {
+		body.Role = "player"
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 14)
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al encriptar contraseña"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo encriptar la contraseña"})
+		return
 	}
 
-	user := models.User{
-		Name:     input.Name,
-		Email:    input.Email,
-		Password: string(hashedPassword),
-		IsAdmin:  false,
+	user := models.User{Name: body.Name, Email: body.Email, PasswordHash: string(hash)}
+	if err := database.DB.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo crear el usuario"})
+		return
 	}
 
-	result := database.DB.Create(&user)
-	if result.Error != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo crear el usuario"})
+	if body.Role == "club" {
+		var club models.Club
+		if err := database.DB.Where("name = ?", "Club Prueba").First(&club).Error; err == nil {
+			database.DB.Create(&models.UserClub{UserID: user.ID, ClubID: club.ID, Role: "admin"})
+		}
 	}
 
-	return c.JSON(fiber.Map{"message": "Usuario registrado correctamente"})
+	c.JSON(http.StatusCreated, gin.H{
+		"token": "local_" + user.ID.String(),
+		"user":  gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": body.Role},
+	})
+}
+
+func Login(c *gin.Context) {
+	var body struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		return
+	}
+	if body.Role == "" {
+		body.Role = "player"
+	}
+
+	var user models.User
+	if err := database.DB.Where("email = ?", body.Email).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email o contraseña inválidos"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(body.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email o contraseña inválidos"})
+		return
+	}
+
+	if body.Role == "club" {
+		var association models.UserClub
+		if err := database.DB.Where("user_id = ? AND role = ?", user.ID, "admin").First(&association).Error; err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Este usuario no tiene rol club/admin"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": "local_" + user.ID.String(),
+		"user":  gin.H{"id": user.ID, "name": user.Name, "email": user.Email, "role": body.Role},
+	})
+}
+
+func GetProfile(c *gin.Context) {
+	userID := c.GetString("userID")
+
+	var user models.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Usuario no encontrado"})
+		return
+	}
+
+	needsProfile := false
+	if user.IsGoogleUser {
+		needsProfile = user.LastName == "" || user.Phone == "" || user.PadelLevel == ""
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":             user.ID,
+		"email":          user.Email,
+		"name":           user.Name,
+		"last_name":      user.LastName,
+		"phone":          user.Phone,
+		"birth_date":     user.BirthDate,
+		"city":           user.City,
+		"padel_level":    user.PadelLevel,
+		"is_google_user": user.IsGoogleUser,
+		"hasProfile":     !needsProfile,
+	})
+}
+
+func UpdateProfile(c *gin.Context) {
+	userID := c.GetString("userID")
+
+	var input ProfileInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Usuario no encontrado"})
+		return
+	}
+
+	user.Name = input.Name
+	user.LastName = input.LastName
+	user.Phone = input.Phone
+	user.City = input.City
+	user.PadelLevel = input.PadelLevel
+
+	if input.BirthDate != "" {
+		birthDate, err := time.Parse("2006-01-02", input.BirthDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido"})
+			return
+		}
+		user.BirthDate = &birthDate
+	}
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al actualizar perfil"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Perfil actualizado correctamente"})
 }
