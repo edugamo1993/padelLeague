@@ -145,6 +145,8 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	oldPhone := user.Phone
+
 	user.Name = input.Name
 	user.LastName = input.LastName
 	user.Phone = input.Phone
@@ -165,5 +167,54 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	// Si el teléfono cambió, intentar vincular membresías de invitado automáticamente.
+	if input.Phone != "" && input.Phone != oldPhone {
+		mergeResult, err := MergeGuestMemberships(&user)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message":      "Perfil actualizado correctamente",
+				"mergeWarning": "Error al vincular membresías de invitado",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":     "Perfil actualizado correctamente",
+			"mergedCount": mergeResult.MergedCount,
+			"clubsJoined": mergeResult.ClubsJoined,
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Perfil actualizado correctamente"})
+}
+
+// ClaimMemberships permite al usuario vincular manualmente sus membresías de
+// invitado basándose en el teléfono registrado en su perfil. Es idempotente.
+func ClaimMemberships(c *gin.Context) {
+	userID := c.GetString("userID")
+
+	var user models.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Usuario no encontrado"})
+		return
+	}
+
+	if user.Phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Debes añadir un número de teléfono a tu perfil antes de reclamar membresías",
+		})
+		return
+	}
+
+	result, err := MergeGuestMemberships(&user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al vincular membresías"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"mergedCount": result.MergedCount,
+		"clubsJoined": result.ClubsJoined,
+		"message":     "Membresías reclamadas correctamente",
+	})
 }

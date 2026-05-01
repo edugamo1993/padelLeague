@@ -36,8 +36,8 @@ const leagues = {
                     </div>
                     <div class="card-content">
                         <div class="league-meta">
-                            <span><i class="fas fa-trophy"></i> Categorías: ${league.categories?.length || 0}</span>
-                            <span><i class="fas fa-users"></i> Club: ${clubName}</span>
+                            <span><i class="fas fa-layer-group"></i> Grupos: ${league.groups?.length || 0}</span>
+                            <span><i class="fas fa-building"></i> Club: ${clubName}</span>
                             <span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">
                                 ${isActive ? 'Activa' : 'Inactiva'}
                             </span>
@@ -68,26 +68,33 @@ const leagues = {
     },
 
     async loadStandings(leagueId) {
+        const container = document.getElementById('standingsList');
         try {
-            const standings = await api.getLeagueStandings(leagueId);
-            document.getElementById('standingsList').innerHTML = `
+            const standings = await api.getLeagueStandings(leagueId || state.currentLeague);
+            if (!standings || standings.length === 0) {
+                container.innerHTML = '<p class="text-center text-light">No hay datos de ranking todavía.</p>';
+                return;
+            }
+            container.innerHTML = `
                 <table class="standings-table">
                     <thead>
                         <tr>
-                            <th>Posición</th><th>Jugador</th><th>Puntos</th>
-                            <th>Ganados</th><th>Perdidos</th><th>Sets a favor</th><th>Sets en contra</th>
+                            <th>Pos.</th><th>Jugador</th><th>Grupo</th><th>Pts</th>
+                            <th>Gan.</th><th>Per.</th><th>Sets+</th><th>Sets-</th><th>Rondas</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${standings.map((s, i) => `
                             <tr>
                                 <td class="position">${i + 1}</td>
-                                <td>${s.user.name}</td>
-                                <td>${s.points}</td>
+                                <td>${s.memberName || '-'}</td>
+                                <td>${s.groupName || '-'}</td>
+                                <td><strong>${s.totalPoints}</strong></td>
                                 <td>${s.matchesWon}</td>
                                 <td>${s.matchesLost}</td>
                                 <td>${s.setsFor}</td>
                                 <td>${s.setsAgainst}</td>
+                                <td>${s.roundsPlayed}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -95,6 +102,7 @@ const leagues = {
             `;
         } catch (error) {
             console.error('Error loading standings:', error);
+            container.innerHTML = '<p class="text-center text-light">No hay datos de ranking todavía.</p>';
         }
     },
 
@@ -123,9 +131,18 @@ const leagues = {
         return { pending: 'Pendiente', in_progress: 'En progreso', finished: 'Cerrada' }[status] || status;
     },
 
+    // Devuelve true si el usuario actual puede registrar/editar el resultado de este partido
+    _canEditMatch(match) {
+        if (state.userType === 'club') return true;
+        const userId = state.user?.id;
+        if (!userId) return false;
+        return (match.players || []).some(p => p.groupMember?.userId === userId);
+    },
+
     _renderTandaMatches(round, container) {
         container.innerHTML = '';
         const matches = round.matches || [];
+        const roundActive = round.status !== 'finished';
         if (matches.length === 0) {
             container.innerHTML = '<p class="text-center text-light">Sin partidos en esta tanda.</p>';
             return;
@@ -147,14 +164,24 @@ const leagues = {
                 const p2 = this._pairNames(match.players, 2);
                 const result = this._matchResultText(match);
                 const isPending = match.status !== 'finished';
+                const canEdit = roundActive && this._canEditMatch(match);
+
+                let actionCell;
+                if (isPending) {
+                    actionCell = canEdit
+                        ? `<button class="btn btn-sm btn-success" onclick="leagues.showResultModal('${match.id}')"><i class="fas fa-edit"></i> Resultado</button>`
+                        : `<span class="status-badge status-pending">Pendiente</span>`;
+                } else {
+                    actionCell = canEdit
+                        ? `<button class="btn btn-sm btn-secondary" onclick="leagues.showResultModal('${match.id}')"><i class="fas fa-pencil-alt"></i> Editar</button>`
+                        : `<span class="status-badge status-inactive">Terminado</span>`;
+                }
+
                 return `<tr>
                     <td>${p1}</td>
                     <td>${p2}</td>
                     <td>${result}</td>
-                    <td>${isPending
-                        ? `<button class="btn btn-sm btn-success" onclick="leagues.showResultModal('${match.id}')"><i class="fas fa-edit"></i> Resultado</button>`
-                        : `<span class="status-badge status-inactive">Terminado</span>`}
-                    </td>
+                    <td>${actionCell}</td>
                 </tr>`;
             }).join('');
 
@@ -190,11 +217,9 @@ const leagues = {
 
             // Desplegable de tandas
             const selectorDiv = document.createElement('div');
-            selectorDiv.className = 'form-group';
-            selectorDiv.style.marginBottom = '16px';
+            selectorDiv.className = 'tanda-selector-row';
             const select = document.createElement('select');
             select.id = 'tandaSelector';
-            select.className = 'form-control';
             rounds.forEach((round, i) => {
                 const opt = document.createElement('option');
                 opt.value = i;
@@ -249,10 +274,23 @@ const leagues = {
         document.getElementById('scoreColP2').textContent =
             pair2Players.map(shortName).join('/') || 'P2';
 
-        document.getElementById('resultMatchDate').value = new Date().toISOString().slice(0, 10);
-        ['set1p1','set1p2','set2p1','set2p2','set3p1','set3p2'].forEach(id => {
-            document.getElementById(id).value = '';
+        // Fecha: usar la del partido si ya tiene, sino hoy
+        const existingDate = match.playedAt ? match.playedAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+        document.getElementById('resultMatchDate').value = existingDate;
+
+        // Si ya tiene sets, pre-rellenar los campos
+        const sets = (match.sets || []).slice().sort((a, b) => a.setNumber - b.setNumber);
+        const setFields = [
+            { p1: 'set1p1', p2: 'set1p2' },
+            { p1: 'set2p1', p2: 'set2p2' },
+            { p1: 'set3p1', p2: 'set3p2' },
+        ];
+        setFields.forEach((f, i) => {
+            const s = sets[i];
+            document.getElementById(f.p1).value = s ? s.gamesPair1 : '';
+            document.getElementById(f.p2).value = s ? s.gamesPair2 : '';
         });
+
         document.getElementById('resultValidationMsg').style.display = 'none';
         document.getElementById('resultMatchModal').classList.add('active');
     },
@@ -593,31 +631,101 @@ const leagues = {
                 members.forEach(member => {
                     const item = document.createElement('div');
                     item.className = 'list-item';
+                    const displayName = member.user ? member.user.name : (member.name || '') + ' ' + (member.lastName || '');
+                    const displaySub = member.user ? member.user.email : member.phone;
+                    const displayType = member.user ? 'Usuario registrado' : 'Usuario no registrado';
                     item.innerHTML = `
                         <div>
-                            <h4>${member.user ? member.user.name : member.name + ' ' + member.lastName}</h4>
-                            <p>${member.user ? member.user.email : member.phone}</p>
-                            <small class="text-light">${member.user ? 'Usuario registrado' : 'Usuario no registrado'}</small>
+                            <h4>${displayName}</h4>
+                            <p>${displaySub || ''}</p>
+                            <small class="text-light">${displayType}</small>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="leagues.removeMember('${groupId}', '${member.id}', '${member.user ? member.user.name : member.name + ' ' + member.lastName}')">
+                        <button class="btn btn-sm btn-danger" onclick="leagues.removeMember('${groupId}', '${member.id}', '${displayName.replace(/'/g, "\\'")}')">
                             <i class="fas fa-times"></i>
                         </button>
                     `;
                     groupMembersList.appendChild(item);
                 });
             }
+
+            const currentUserId = state.user?.id;
+            const isMember = !!(currentUserId && members && members.some(
+                m => m.userId === currentUserId || m.user?.id === currentUserId
+            ));
+            const isClubAdmin = (state.userType === 'club');
+            const canViewChat = isMember || isClubAdmin;
+
+            const chatTabBtn = document.querySelector('#groupDetailsModal [data-group-tab="chat"]');
+            if (chatTabBtn) chatTabBtn.style.display = canViewChat ? '' : 'none';
+
+            this._activateGroupTab('members');
+            this._bindGroupTabSwitcher(groupId);
+
             document.getElementById('groupDetailsModal').classList.add('active');
+
+            if (canViewChat) {
+                ChatModule.connect(groupId);
+
+                const sendBtn = document.getElementById('chatSendBtn');
+                const chatInput = document.getElementById('chatInput');
+                if (sendBtn && chatInput) {
+                    chatInput.value = '';
+                    chatInput.disabled = false;
+                    sendBtn.disabled = false;
+                    sendBtn.onclick = () => {
+                        if (ChatModule.sendMessage(chatInput.value)) {
+                            chatInput.value = '';
+                        }
+                    };
+                    chatInput.onkeydown = (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (ChatModule.sendMessage(chatInput.value)) {
+                                chatInput.value = '';
+                            }
+                        }
+                    };
+                }
+            } else {
+                ChatModule.disconnect();
+            }
         } catch (error) {
             utils.showToast('Error al cargar miembros del grupo', 'error');
         }
     },
 
+    _activateGroupTab(tabName) {
+        const panes = document.querySelectorAll('#groupDetailsModal .group-tab-pane');
+        panes.forEach(p => { p.style.display = 'none'; });
+        const active = document.getElementById(tabName === 'members' ? 'groupTabMembers' : 'groupTabChat');
+        if (active) active.style.display = 'block';
+
+        const btns = document.querySelectorAll('#groupDetailsModal [data-group-tab]');
+        btns.forEach(b => {
+            if (b.dataset.groupTab === tabName) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+    },
+
+    _bindGroupTabSwitcher(groupId) {
+        const btns = document.querySelectorAll('#groupDetailsModal [data-group-tab]');
+        btns.forEach(btn => {
+            btn.onclick = () => {
+                this._activateGroupTab(btn.dataset.groupTab);
+            };
+        });
+    },
+
     hideGroupDetailsModal() {
         document.getElementById('groupDetailsModal').classList.remove('active');
+        ChatModule.disconnect();
     },
 
     showAddMemberModal(groupId) {
-        state.currentGroup = groupId;
+        if (groupId) state.currentGroup = groupId;
         document.getElementById('memberSearchResults').innerHTML = '';
         document.getElementById('memberPhone').value = '';
         document.getElementById('memberName').value = '';
@@ -648,16 +756,25 @@ const leagues = {
                 document.getElementById('unregisteredUserSection').style.display = 'block';
                 return;
             }
-            resultsDiv.innerHTML = users.map(user => `
-                <div class="user-result" onclick="leagues.selectUser('${user.id}', '${user.name}', '${user.email || ''}')">
+            resultsDiv.innerHTML = users.map(user => {
+                const userId    = user.id || '';
+                const userName  = user.name || '';
+                const userLast  = user.lastName || '';
+                const userEmail = user.email || '';
+                const userPhone = user.phone || '';
+                const safeId    = userId.replace(/'/g, "\\'");
+                const safeName  = userName.replace(/'/g, "\\'");
+                const safeEmail = userEmail.replace(/'/g, "\\'");
+                return `
+                <div class="user-result" onclick="leagues.selectUser('${safeId}', '${safeName}', '${safeEmail}')">
                     <div>
-                        <h4>${user.name} ${user.lastName || ''}</h4>
-                        <p>${user.email || 'Sin email'}</p>
-                        <small class="text-light">${user.phone || 'Sin teléfono'}</small>
+                        <h4>${userName} ${userLast}</h4>
+                        <p>${userEmail || 'Sin email'}</p>
+                        <small class="text-light">${userPhone || 'Sin teléfono'}</small>
                     </div>
                     <button class="btn btn-sm btn-success">Seleccionar</button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
             document.getElementById('unregisteredUserSection').style.display = 'none';
         } catch (error) {
             resultsDiv.innerHTML = '<p class="text-error">Error al buscar usuarios. Inténtalo de nuevo.</p>';
@@ -726,13 +843,9 @@ const leagues = {
         }
     },
 
-    async loadStandings() {
-        try {
-            await api.getLeagueStandings(state.currentLeague);
-            document.getElementById('standingsList').innerHTML = '<p class="text-center text-light">Funcionalidad de clasificaciones próximamente.</p>';
-        } catch (error) {
-            console.error('Error loading standings:', error);
-        }
+    // Alias sin parámetro, usado desde bindActions cuando se activa el tab
+    async loadStandingsTab() {
+        await this.loadStandings(state.currentLeague);
     },
 
     bindActions() {
@@ -748,7 +861,7 @@ const leagues = {
 
                 if (tabName === 'groups') this.loadGroups();
                 else if (tabName === 'tandas') this.loadTandas();
-                else if (tabName === 'standings') this.loadStandings();
+                else if (tabName === 'standings') this.loadStandingsTab();
                 else if (tabName === 'matches') this.loadMatches(state.currentLeague);
             });
         });

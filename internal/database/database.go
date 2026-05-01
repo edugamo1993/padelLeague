@@ -47,6 +47,8 @@ func InitDatabase() {
 		&models.RoundStanding{},
 		&models.Group{},
 		&models.GroupMember{},
+		&models.ChatMessage{},
+		&models.ChatReadStatus{},
 	)
 
 	seedTestData()

@@ -150,11 +150,57 @@ func ListGroupMembers(c *gin.Context) {
 	}
 
 	var members []models.GroupMember
-	if err := database.DB.Preload("User").Where("group_id = ?", gid).Find(&members).Error; err != nil {
+	if err := database.DB.Preload("User").Where("group_id = ? AND deleted_at IS NULL", gid).Find(&members).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener miembros"})
 		return
 	}
-	c.JSON(http.StatusOK, members)
+
+	type userDTO struct {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		LastName   string `json:"lastName"`
+		Email      string `json:"email"`
+		Phone      string `json:"phone"`
+		PadelLevel string `json:"padelLevel"`
+	}
+	type memberDTO struct {
+		ID       string   `json:"id"`
+		GroupID  string   `json:"groupId"`
+		UserID   *string  `json:"userId,omitempty"`
+		Name     string   `json:"name,omitempty"`
+		LastName string   `json:"lastName,omitempty"`
+		Phone    string   `json:"phone,omitempty"`
+		JoinedAt string   `json:"joinedAt"`
+		User     *userDTO `json:"user,omitempty"`
+	}
+
+	dtos := make([]memberDTO, len(members))
+	for i, m := range members {
+		dto := memberDTO{
+			ID:       m.ID.String(),
+			GroupID:  m.GroupID.String(),
+			Name:     m.Name,
+			LastName: m.LastName,
+			Phone:    m.Phone,
+			JoinedAt: m.JoinedAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+		if m.UserID != nil {
+			s := m.UserID.String()
+			dto.UserID = &s
+		}
+		if m.User != nil {
+			dto.User = &userDTO{
+				ID:         m.User.ID.String(),
+				Name:       m.User.Name,
+				LastName:   m.User.LastName,
+				Email:      m.User.Email,
+				Phone:      m.User.Phone,
+				PadelLevel: m.User.PadelLevel,
+			}
+		}
+		dtos[i] = dto
+	}
+	c.JSON(http.StatusOK, dtos)
 }
 
 func AddGroupMember(c *gin.Context) {

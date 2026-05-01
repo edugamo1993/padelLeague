@@ -1,0 +1,18 @@
+{
+  "name": "Padel League",
+  "short_name": "PadelLeague",
+  "description": "Gestiona tus ligas de pádel",
+  "start_url": "/web/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f4f8",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "LogoPL.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

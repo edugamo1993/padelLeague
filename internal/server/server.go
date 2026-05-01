@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"ligapadel/internal/chat"
 	"ligapadel/internal/handlers"
 	"ligapadel/internal/middleware"
 )
@@ -24,12 +25,22 @@ func NewServer() *gin.Engine {
 
 	auth := middleware.AuthRequired()
 
+	// ── Chat Hub (WebSocket) ──────────────────────────────────────────────────
+	chatHub := chat.NewHub()
+	go chatHub.Run()
+
+	// ── Static assets ────────────────────────────────────────────────────────
+	engine.GET("/favicon.ico", func(c *gin.Context) {
+		c.File("./web/LogoPL.ico")
+	})
+
 	// ── Auth ─────────────────────────────────────────────────────────────────
 	handlers.GoogleAuthRoutes(engine)
 	engine.POST("/auth/register", handlers.Register)
 	engine.POST("/auth/login", handlers.Login)
 	engine.GET("/profile", auth, handlers.GetProfile)
 	engine.PUT("/profile", auth, handlers.UpdateProfile)
+	engine.POST("/profile/claim-memberships", auth, handlers.ClaimMemberships)
 
 	// ── Clubs ─────────────────────────────────────────────────────────────────
 	engine.GET("/clubs", handlers.ListClubs)
@@ -71,7 +82,13 @@ func NewServer() *gin.Engine {
 	engine.PUT("/matches/:matchId/result", auth, handlers.UpdateMatchResult)
 
 	// ── Standings ─────────────────────────────────────────────────────────────
-	engine.GET("/leagues/:leagueId/standings", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"msg": "league standings"}) })
+	engine.GET("/leagues/:leagueId/standings", handlers.GetLeagueStandings)
+
+	// ── Chat ──────────────────────────────────────────────────────────────────
+	// WebSocket: token via query param porque los WebSockets no soportan headers custom
+	engine.GET("/ws/groups/:groupId", handlers.ChatWebSocket(chatHub))
+	// REST: historial de mensajes, protegido por middleware auth normal
+	engine.GET("/groups/:groupId/messages", auth, handlers.GetChatMessages)
 
 	return engine
 }

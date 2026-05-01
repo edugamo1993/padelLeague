@@ -4,7 +4,10 @@ const auth = {
 
     init() {
         const savedRole = localStorage.getItem('padel_user_type');
-        if (savedRole === 'club' || savedRole === 'player') this.currentRole = savedRole;
+        if (savedRole === 'club' || savedRole === 'player') {
+            this.currentRole = savedRole;
+            state.userType = savedRole;
+        }
         this.applyRoleUI();
         this.checkAuth();
         this.bindEvents();
@@ -81,7 +84,8 @@ const auth = {
 
             if (response.ok) {
                 const profileData = await response.json();
-                if (profileData.role) { state.userType = profileData.role; this.setRole(profileData.role); }
+                if (profileData.role) { this.setRole(profileData.role); }
+                else { state.userType = this.currentRole; }
                 state.user = profileData;
 
                 if (profileData.is_google_user && !profileData.hasProfile) {

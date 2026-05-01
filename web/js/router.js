@@ -84,7 +84,7 @@ const router = {
                 state.userType === 'club' ? this.navigate('clubDashboard') : matches.load();
                 break;
             case 'profile':
-                state.userType === 'club' ? this.navigate('clubDashboard') : profile.load();
+                profile.load();
                 break;
         }
     },

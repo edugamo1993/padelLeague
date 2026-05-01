@@ -20,5 +20,23 @@ func SearchUsers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al buscar usuarios"})
 		return
 	}
-	c.JSON(http.StatusOK, users)
+
+	type userDTO struct {
+		ID       string `json:"id"`
+		Name     string `json:"name"`
+		LastName string `json:"lastName"`
+		Email    string `json:"email"`
+		Phone    string `json:"phone"`
+	}
+	dtos := make([]userDTO, len(users))
+	for i, u := range users {
+		dtos[i] = userDTO{
+			ID:       u.ID.String(),
+			Name:     u.Name,
+			LastName: u.LastName,
+			Email:    u.Email,
+			Phone:    u.Phone,
+		}
+	}
+	c.JSON(http.StatusOK, dtos)
 }

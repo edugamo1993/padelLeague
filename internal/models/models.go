@@ -294,3 +294,32 @@ func (gm *GroupMember) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// ==================== CHAT ====================
+
+type ChatMessage struct {
+	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey"`
+	GroupID     uuid.UUID      `json:"groupId" gorm:"not null;index"`
+	SenderID    uuid.UUID      `json:"senderId" gorm:"not null"`
+	Content     string         `json:"content" gorm:"not null"`
+	MessageType string         `json:"messageType" gorm:"default:'text'"`
+	CreatedAt   time.Time      `json:"createdAt" gorm:"autoCreateTime"`
+	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+
+	Sender *User `json:"sender,omitempty" gorm:"foreignKey:SenderID"`
+}
+
+func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
+	if cm.ID == uuid.Nil {
+		cm.ID = uuid.New()
+	}
+	return nil
+}
+
+type ChatReadStatus struct {
+	UserID     uuid.UUID `json:"-" gorm:"primaryKey;type:uuid"`
+	GroupID    uuid.UUID `json:"-" gorm:"primaryKey;type:uuid"`
+	LastReadAt time.Time `json:"lastReadAt" gorm:"autoUpdateTime"`
+}
+
+func (crs *ChatReadStatus) TableName() string { return "chat_read_statuses" }

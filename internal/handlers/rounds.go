@@ -218,6 +218,7 @@ func FinishRound(c *gin.Context) {
 		matchesWon  int
 		matchesLost int
 		setsWon     int
+		setsLost    int
 		gamesWon    int
 	}
 
@@ -262,6 +263,7 @@ func FinishRound(c *gin.Context) {
 					s.matchesLost++
 				}
 				s.setsWon += p1Sets
+				s.setsLost += p2Sets
 				s.gamesWon += p1Games
 			}
 		}
@@ -273,12 +275,15 @@ func FinishRound(c *gin.Context) {
 					s.matchesLost++
 				}
 				s.setsWon += p2Sets
+				s.setsLost += p1Sets
 				s.gamesWon += p2Games
 			}
 		}
 	}
 
-	// ── Fase 2: calcular movimientos (sin aplicar todavía) ─────────────────
+	// ── Fase 2: calcular movimientos y guardar standings ──────────────────
+
+	pointsByPos := []int{5, 4, 3, 2, 1}
 
 	type plannedMove struct {
 		memberID      uuid.UUID
@@ -340,6 +345,24 @@ func FinishRound(c *gin.Context) {
 				toGroupName:   groups[targetGi].Name,
 				direction:     direction,
 			})
+
+			if ms.member.UserID != nil {
+				pts := 1
+				if rank < len(pointsByPos) {
+					pts = pointsByPos[rank]
+				}
+				database.DB.Create(&models.RoundStanding{
+					RoundID:     round.ID,
+					UserID:      *ms.member.UserID,
+					Position:    rank + 1,
+					Points:      pts,
+					MatchesWon:  ms.matchesWon,
+					MatchesLost: ms.matchesLost,
+					SetsFor:     ms.setsWon,
+					SetsAgainst: ms.setsLost,
+					Promotion:   direction,
+				})
+			}
 		}
 	}
 
@@ -388,6 +411,51 @@ func UpdateMatchResult(c *gin.Context) {
 	mid, err := uuid.Parse(matchID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "matchId inválido"})
+		return
+	}
+
+	// Cargar partido con ronda y jugadores para validar permisos
+	var match models.Match
+	if err := database.DB.
+		Preload("Round").
+		Preload("Players.GroupMember").
+		Where("id = ?", mid).First(&match).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Partido no encontrado"})
+		return
+	}
+
+	// Verificar que la ronda no esté cerrada
+	if match.Round == nil || match.Round.Status == "finished" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "No se puede modificar el resultado de una tanda cerrada"})
+		return
+	}
+
+	// Verificar permisos: admin del club O miembro del grupo
+	userID := c.GetString("userID")
+	uid, _ := uuid.Parse(userID)
+
+	var league models.League
+	if err := database.DB.Where("id = ?", match.Round.LeagueID).First(&league).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al verificar liga"})
+		return
+	}
+
+	isClubAdmin := false
+	var userClub models.UserClub
+	if err := database.DB.Where("user_id = ? AND club_id = ? AND role = ?", uid, league.ClubID, "admin").First(&userClub).Error; err == nil {
+		isClubAdmin = true
+	}
+
+	isGroupMember := false
+	for _, mp := range match.Players {
+		if mp.GroupMember != nil && mp.GroupMember.UserID != nil && *mp.GroupMember.UserID == uid {
+			isGroupMember = true
+			break
+		}
+	}
+
+	if !isClubAdmin && !isGroupMember {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Solo los miembros del grupo o el administrador del club pueden registrar resultados"})
 		return
 	}
 
@@ -455,12 +523,6 @@ func UpdateMatchResult(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "El 3er set solo se juega si los dos primeros los gana cada pareja (1-1)"})
 			return
 		}
-	}
-
-	var match models.Match
-	if err := database.DB.Where("id = ?", mid).First(&match).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Partido no encontrado"})
-		return
 	}
 
 	playedAt, err := time.Parse("2006-01-02", body.PlayedAt)
